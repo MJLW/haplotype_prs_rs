@@ -9,7 +9,7 @@ use serde::Deserialize;
 use std::{
     error::Error,
     fs::File,
-    io::{BufReader, BufWriter},
+    io::{BufRead, BufReader, BufWriter},
     iter::zip,
     path::{Path, PathBuf},
     str::FromStr,
@@ -22,11 +22,13 @@ use std::{
 #[command(name = "Barcode VCF", version = env!("CARGO_PKG_VERSION"), about = "Sample barcoding", long_about = "Barcodes a sample using SNP file and a bgzip-compressed VCF.")]
 struct Args {
     #[arg(short, long)]
-    dir_in: String,
+    barcodes_in: String,
 
-    #[arg(short, long)]
-    ext_in: String,
-
+    // #[arg(short, long)]
+    // dir_in: String,
+    //
+    // #[arg(short, long)]
+    // ext_in: String,
     #[arg(short, long)]
     out: String,
 }
@@ -98,19 +100,30 @@ fn read_calls(path: &str, gt_name: &str) -> Result<Vec<Genotype>, Box<dyn Error>
     Ok(calls)
 }
 
-fn get_barcode_paths(dir_path: &str, extension: &str) -> Result<Vec<PathBuf>, Box<dyn Error>> {
-    let dir = Path::new(dir_path);
+// fn get_barcode_paths(dir_path: &str, extension: &str) -> Result<Vec<PathBuf>, Box<dyn Error>> {
+//     let dir = Path::new(dir_path);
+//
+//     if !Path::is_dir(dir) {
+//         return Err(format!("Path is not a directory: {}", dir_path).into());
+//     }
+//
+//     let paths: Vec<_> = glob(format!("{}/*{}", dir_path, extension).as_str())
+//         .expect("Glob pattern failure")
+//         .filter_map(|entry| match entry {
+//             Ok(path) => Some(path),
+//             Err(_) => None,
+//         })
+//         .collect();
+//
+//     Ok(paths)
+// }
 
-    if !Path::is_dir(dir) {
-        return Err(format!("Path is not a directory: {}", dir_path).into());
-    }
-
-    let paths: Vec<_> = glob(format!("{}/*{}", dir_path, extension).as_str())
-        .expect("Glob pattern failure")
-        .filter_map(|entry| match entry {
-            Ok(path) => Some(path),
-            Err(_) => None,
-        })
+fn get_barcode_paths_from_file(path: &str) -> Result<Vec<PathBuf>, Box<dyn Error>> {
+    let reader = BufReader::new(File::open(path)?);
+    let paths: Vec<PathBuf> = reader
+        .lines()
+        .into_iter()
+        .map(|line| PathBuf::from(line.unwrap()))
         .collect();
 
     Ok(paths)
@@ -201,7 +214,8 @@ fn sum_beta_per_haplotype(
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
-    let paths: Vec<PathBuf> = get_barcode_paths(&args.dir_in, &args.ext_in)?;
+    // let paths: Vec<PathBuf> = get_barcode_paths(&args.dir_in, &args.ext_in)?;
+    let paths: Vec<PathBuf> = get_barcode_paths_from_file(&args.barcodes_in)?;
 
     let gts_matrix: Vec<Vec<Genotype>> = paths
         .iter()
