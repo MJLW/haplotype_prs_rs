@@ -1,0 +1,23 @@
+[package]
+name = "haplotype_prs"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap = { version = "4.5.51", features = ["derive"] }
+csv = "1.4.0"
+glob = "0.3.3"
+noodles = { version = "0.101.0", features = ["bam", "bgzf", "core", "sam", "cram", "fasta", "vcf"] }
+serde = { version = "1.0.228", features = ["derive"] }
+
+[[bin]]
+name = "fix_snps"
+path = "src/fix_snps/main.rs"
+
+[[bin]]
+name = "barcode_vcf"
+path = "src/barcode_vcf/main.rs"
+
+[[bin]]
+name = "concat_barcodes"
+path = "src/concat_barcodes/main.rs"
