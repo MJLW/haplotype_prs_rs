@@ -30,22 +30,21 @@ struct Args {
 
 #[derive(Deserialize, Serialize)]
 struct SNP {
-    #[serde(rename = "CHROM")]
+    #[serde(rename = "chrom")]
     chr: String,
 
-    #[serde(rename = "POS")]
+    #[serde(rename = "pos")]
     pos: usize,
 
-    #[serde(rename = "EFFECT")]
+    #[serde(rename = "nt1")]
     effect: char,
 
-    #[serde(rename = "OTHER")]
+    #[serde(rename = "nt2")]
     other: char,
 
-    #[serde(rename = "AF")]
-    af: f32,
-
-    #[serde(rename = "BETA")]
+    // #[serde(rename = "AF")]
+    // af: f32,
+    #[serde(rename = "ldpred_beta")]
     beta: f32,
 }
 
@@ -94,7 +93,7 @@ fn snp_as_complementary(snp: SNP) -> SNP {
         pos: snp.pos,
         effect: snp.other,
         other: snp.effect,
-        af: 1.0 - snp.af,
+        // af: 1.0 - snp.af,
         beta: -snp.beta,
     };
 }
@@ -126,11 +125,14 @@ fn read_snps(path: &str, reference: &Repository) -> Result<Vec<SNP>, Box<dyn Err
         .deserialize()
         .into_iter()
         .filter_map(|r| {
-            let snp: SNP = r.unwrap();
+            let mut snp: SNP = r.unwrap();
+
+            // Fix strange formatting used by ldpred
+            snp.chr = format!("chr{}", snp.chr.split("_").last()?);
             match check_snp_order(&snp, reference) {
                 Ok(SNPOrder::Reference) => Some(snp),
                 Ok(SNPOrder::Alternate) => Some(snp_as_complementary(snp)),
-                Err(_) => None,
+                Err(_) => None, // Drop the SNP in question
             }
         })
         .collect();
@@ -145,12 +147,19 @@ fn write_snps(path: &str, snps: Vec<SNP>) -> Result<(), Box<dyn Error>> {
         .from_writer(BufWriter::new(File::create(Path::new(path))?));
 
     // Write out header
-    writer.write_record(&["CHROM", "POS", "REF", "ALT", "AF", "BETA"])?;
+    // writer.write_record(&["CHROM", "POS", "REF", "ALT", "AF", "BETA"])?;
+    writer.write_record(&["CHROM", "POS", "REF", "ALT", "BETA"])?;
 
     for snp in snps {
         // Convert from EFFECT, OTHER (ALT, REF) to REF, ALT to make downstream comparison against
         // VCFs easier
-        writer.serialize((snp.chr, snp.pos, snp.other, snp.effect, snp.af, snp.beta))?;
+        // writer.serialize((snp.chr, snp.pos, snp.other, snp.effect, snp.af, snp.beta))?;
+
+        // Further chromosome format manipulation because they never match up right
+        let mut chr = snp.chr.clone();
+        let stripped_chr = chr.split_off(3);
+
+        writer.serialize((stripped_chr, snp.pos, snp.other, snp.effect, snp.beta))?;
     }
 
     writer.flush()?;
